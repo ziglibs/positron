@@ -1,0 +1,6 @@
+[apple_pie]
+file = ../vendor/apple_pie/src/apple_pie.zig
+
+[positron]
+file = ../src/positron.zig
+deps = apple_pie

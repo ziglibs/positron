@@ -1,0 +1,9 @@
+[submodule "vendor/webview"]
+	path = vendor/webview
+	url = https://github.com/webview/webview
+[submodule "vendor/apple_pie"]
+	path = vendor/apple_pie
+	url = https://github.com/Luukdegram/apple_pie
+[submodule "vendor/args"]
+	path = vendor/args
+	url = https://github.com/MasterQ32/zig-args
