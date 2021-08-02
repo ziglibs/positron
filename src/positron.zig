@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const apple_pie = @import("apple_pie");
+
 pub const SizeHint = enum(c_int) {
     /// Width and height are default size
     none = 0,
@@ -110,7 +112,12 @@ pub const WebView = opaque {
         webview_bind(self, name.ptr, Binder.c_callback, context);
     }
 
-    pub fn bind(self: *Self, name: [:0]const u8, context: anytype, comptime callback: anytype) void {
+    /// Binds a callback so that it will appear under the given name as a
+    /// global JavaScript function. The callback will be called with `context` as the first parameter,
+    /// all other parameters must be deserializable to JSON. The return value might be a error union,
+    /// in which case the error is returned to the JS promise. Otherwise, a normal result is serialized to
+    /// JSON and then sent back to JS.
+    pub fn bind(self: *Self, name: [:0]const u8, comptime callback: anytype, context: @typeInfo(@TypeOf(callback)).Fn.args[0].arg_type.?) void {
         const Fn = @TypeOf(callback);
         const function_info: std.builtin.TypeInfo.Fn = @typeInfo(Fn).Fn;
 

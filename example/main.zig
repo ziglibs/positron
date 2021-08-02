@@ -8,7 +8,7 @@ pub fn main() !void {
     view.setTitle("Webview Example");
     view.setSize(480, 320, .none);
 
-    view.bind("sayHello", view, sayHello);
+    view.bind("sayHello", sayHello, view);
 
     view.init(
         \\document.addEventListener("DOMContentLoaded", () => {
@@ -40,7 +40,7 @@ const Point = struct {
 };
 
 var calls: usize = 0;
-fn sayHello(view: *wv.WebView, pt: Point, text: []const u8, value: f64) !u32 {
+fn sayHello(view: *wv.WebView, pt: Point, text: []const u8, value: f64) !Point {
     _ = view;
     std.debug.print("sayHello({}, \"{s}\", {d})\n", .{ pt, text, value });
 
@@ -48,5 +48,8 @@ fn sayHello(view: *wv.WebView, pt: Point, text: []const u8, value: f64) !u32 {
         return error.TooManyCalls;
     calls += 1;
 
-    return @truncate(u32, calls);
+    return Point{
+        .x = pt.y,
+        .y = -pt.x,
+    };
 }
