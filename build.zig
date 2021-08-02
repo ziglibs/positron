@@ -1,18 +1,25 @@
 const std = @import("std");
 const pkgs = @import(".zpm/pkgs.zig");
 
+const Backend = enum {
+    gtk,
+    cocoa,
+    edge,
+};
+
 pub fn build(b: *std.build.Builder) void {
     const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
+    const backend = b.option(Backend, "backend", "Configures the backend that should be used for webview.");
 
     const exe = b.addExecutable("positron-demo", "example/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
-    linkPositron(exe);
+    linkPositron(exe, backend);
     exe.install();
 
     const positron_test = b.addTest("src/positron.zig");
-    linkPositron(positron_test);
+    linkPositron(positron_test, null);
 
     const test_step = b.step("test", "Runs the test suite");
     test_step.dependOn(&positron_test.step);
@@ -27,7 +34,7 @@ pub fn build(b: *std.build.Builder) void {
     run_step.dependOn(&run_cmd.step);
 }
 
-fn linkPositron(exe: *std.build.LibExeObjStep) void {
+fn linkPositron(exe: *std.build.LibExeObjStep, backend: ?Backend) void {
     exe.linkLibC();
     exe.linkSystemLibrary("c++");
     exe.addPackage(pkgs.pkgs.positron);
@@ -35,6 +42,14 @@ fn linkPositron(exe: *std.build.LibExeObjStep) void {
         "-std=c++11",
     });
     exe.addIncludeDir("vendor/webview");
+
+    if (backend) |b| {
+        switch (b) {
+            .gtk => exe.defineCMacro("WEBVIEW_GTK", null),
+            .cocoa => exe.defineCMacro("WEBVIEW_COCOA", null),
+            .edge => exe.defineCMacro("WEBVIEW_EDGE", null),
+        }
+    }
 
     switch (exe.target.getOsTag()) {
         //# Windows (x64)
