@@ -2,23 +2,9 @@ const std = @import("std");
 
 const apple_pie = @import("apple_pie");
 
-pub const SizeHint = enum(c_int) {
-    /// Width and height are default size
-    none = 0,
-    /// Width and height are minimum bounds
-    min = 1,
-    /// Width and height are maximum bounds
-    max = 2,
-    /// Window size can not be changed by a user
-    fixed = 3,
-};
-
-pub const ReturnValue = union(enum) {
-    success: [:0]const u8,
-    failure: [:0]const u8,
-};
-
-pub const WebView = opaque {
+/// A web browser window that one can interact with.
+/// Uses a JSON RPC solution to talk to the browser window.
+pub const View = opaque {
     const Self = @This();
 
     /// Creates a new webview instance. If `allow_debug` is set - developer tools will
@@ -130,8 +116,8 @@ pub const WebView = opaque {
         const Context = @TypeOf(context);
 
         const Binder = struct {
-            fn getWebView(ctx: Context) *WebView {
-                if (Context == *WebView)
+            fn getWebView(ctx: Context) *Self {
+                if (Context == *Self)
                     return ctx;
                 return ctx.getWebView();
             }
@@ -148,14 +134,14 @@ pub const WebView = opaque {
                     return error.InvalidJson;
             }
 
-            fn errorResponse(view: *WebView, seq: [:0]const u8, err: anyerror) void {
+            fn errorResponse(view: *Self, seq: [:0]const u8, err: anyerror) void {
                 var buffer: [64]u8 = undefined;
                 const err_str = std.fmt.bufPrint(&buffer, "\"{s}\"\x00", .{@errorName(err)}) catch @panic("error name too long!");
 
                 view.@"return"(seq, .{ .failure = err_str[0 .. err_str.len - 1 :0] });
             }
 
-            fn successResponse(view: *WebView, seq: [:0]const u8, value: anytype) void {
+            fn successResponse(view: *Self, seq: [:0]const u8, value: anytype) void {
                 var buf = std.ArrayList(u8).init(std.heap.c_allocator);
                 defer buf.deinit();
 
@@ -250,35 +236,248 @@ pub const WebView = opaque {
             .failure => |res_text| webview_return(self, seq.ptr, 1, res_text.ptr),
         }
     }
+
+    // C Binding:
+
+    extern fn webview_create(debug: c_int, window: ?*c_void) ?*Self;
+    extern fn webview_destroy(w: *Self) void;
+    extern fn webview_run(w: *Self) void;
+    extern fn webview_terminate(w: *Self) void;
+    extern fn webview_dispatch(w: *Self, func: ?fn (*Self, ?*c_void) callconv(.C) void, arg: ?*c_void) void;
+    extern fn webview_get_window(w: *Self) ?*c_void;
+    extern fn webview_set_title(w: *Self, title: [*:0]const u8) void;
+    extern fn webview_set_size(w: *Self, width: c_int, height: c_int, hints: c_int) void;
+    extern fn webview_navigate(w: *Self, url: [*:0]const u8) void;
+    extern fn webview_init(w: *Self, js: [*:0]const u8) void;
+    extern fn webview_eval(w: *Self, js: [*:0]const u8) void;
+    extern fn webview_bind(w: *Self, name: [*:0]const u8, func: ?fn ([*c]const u8, [*c]const u8, ?*c_void) callconv(.C) void, arg: ?*c_void) void;
+    extern fn webview_return(w: *Self, seq: [*:0]const u8, status: c_int, result: [*c]const u8) void;
+};
+
+pub const SizeHint = enum(c_int) {
+    /// Width and height are default size
+    none = 0,
+    /// Width and height are minimum bounds
+    min = 1,
+    /// Width and height are maximum bounds
+    max = 2,
+    /// Window size can not be changed by a user
+    fixed = 3,
+};
+
+pub const ReturnValue = union(enum) {
+    success: [:0]const u8,
+    failure: [:0]const u8,
 };
 
 test {
-    _ = WebView.create;
-    _ = WebView.destroy;
-    _ = WebView.run;
-    _ = WebView.terminate;
-    _ = WebView.dispatch;
-    _ = WebView.getWindow;
-    _ = WebView.setTitle;
-    _ = WebView.setSize;
-    _ = WebView.navigate;
-    _ = WebView.init;
-    _ = WebView.eval;
-    _ = WebView.bind;
-    _ = WebView.bindRaw;
-    _ = WebView.@"return";
+    _ = View.create;
+    _ = View.destroy;
+    _ = View.run;
+    _ = View.terminate;
+    _ = View.dispatch;
+    _ = View.getWindow;
+    _ = View.setTitle;
+    _ = View.setSize;
+    _ = View.navigate;
+    _ = View.init;
+    _ = View.eval;
+    _ = View.bind;
+    _ = View.bindRaw;
+    _ = View.@"return";
 }
 
-extern fn webview_create(debug: c_int, window: ?*c_void) ?*WebView;
-extern fn webview_destroy(w: *WebView) void;
-extern fn webview_run(w: *WebView) void;
-extern fn webview_terminate(w: *WebView) void;
-extern fn webview_dispatch(w: *WebView, func: ?fn (*WebView, ?*c_void) callconv(.C) void, arg: ?*c_void) void;
-extern fn webview_get_window(w: *WebView) ?*c_void;
-extern fn webview_set_title(w: *WebView, title: [*:0]const u8) void;
-extern fn webview_set_size(w: *WebView, width: c_int, height: c_int, hints: c_int) void;
-extern fn webview_navigate(w: *WebView, url: [*:0]const u8) void;
-extern fn webview_init(w: *WebView, js: [*:0]const u8) void;
-extern fn webview_eval(w: *WebView, js: [*:0]const u8) void;
-extern fn webview_bind(w: *WebView, name: [*:0]const u8, func: ?fn ([*c]const u8, [*c]const u8, ?*c_void) callconv(.C) void, arg: ?*c_void) void;
-extern fn webview_return(w: *WebView, seq: [*:0]const u8, status: c_int, result: [*c]const u8) void;
+pub const Provider = struct {
+    const Self = @This();
+
+    const Server = apple_pie.Server(*Self, handleRequest);
+
+    const Route = struct {
+        const Error = error{OutOfMemory} || apple_pie.Response.Error;
+
+        const GenericPointer = opaque {};
+        const RouteHandler = fn (*Provider, *Route, *apple_pie.Response, apple_pie.Request) Error!void;
+
+        arena: std.heap.ArenaAllocator,
+        prefix: [:0]const u8,
+
+        handler: RouteHandler,
+        context: *GenericPointer,
+        pub fn getContext(self: Route, comptime T: type) *T {
+            return @ptrCast(*T, @alignCast(@alignOf(T), self.context));
+        }
+
+        pub fn deinit(self: *Route) void {
+            self.arena.deinit();
+            self.* = undefined;
+        }
+    };
+
+    allocator: *std.mem.Allocator,
+    server: Server,
+    base_url: []const u8,
+
+    routes: std.ArrayList(Route),
+
+    pub fn create(allocator: *std.mem.Allocator) !*Self {
+        const provider = try allocator.create(Self);
+        defer allocator.destroy(provider);
+
+        provider.* = Self{
+            .allocator = allocator,
+            .server = Server.init(
+                allocator,
+                std.net.Address{
+                    .in = std.net.Ip4Address.init(.{ 127, 0, 0, 1 }, 0),
+                },
+                provider,
+            ),
+            .base_url = undefined,
+            .routes = std.ArrayList(Route).init(allocator),
+        };
+        errdefer provider.routes.deinit();
+        errdefer provider.server.deinit();
+
+        try provider.server.start();
+
+        const addr = provider.server.stream.listen_address;
+        const port = switch (addr.any.family) {
+            std.os.AF_INET => addr.in.getPort(),
+            std.os.AF_INET6 => @panic("unexpected listen address!"),
+            else => return error.UnsupportedSocketFamily,
+        };
+
+        provider.base_url = try std.fmt.allocPrint(provider.allocator, "http://127.0.0.1:{d}", .{port});
+        errdefer provider.allocator.free(self.base_url);
+
+        return provider;
+    }
+
+    pub fn destroy(self: *Self) void {
+        self.server.deinit();
+
+        for (self.routes.items) |*route| {
+            route.deinit();
+        }
+        self.routes.deinit();
+        self.allocator.free(self.base_url);
+        self.* = undefined;
+        std.heap.c_allocator.destroy(self);
+    }
+
+    fn compareRoute(_: void, lhs: Route, rhs: Route) bool {
+        return std.ascii.lessThanIgnoreCase(lhs.prefix, rhs.prefix);
+    }
+
+    fn sortRoutes(self: *Self) void {
+        std.sort.sort(Route, self.routes.items, {}, compareRoute);
+    }
+
+    fn defaultRoute(self: *Provider, route: *Route, response: *apple_pie.Response, request: apple_pie.Request) Route.Error!void {
+        _ = self;
+        _ = route;
+        _ = request;
+
+        try response.headers.putNoClobber("Content-Type", "text/html");
+        response.status_code = .not_found;
+
+        var writer = response.writer();
+        try writer.writeAll(
+            \\<!doctype html>
+            \\<html lang="en">
+            \\  <head>
+            \\    <meta charset="UTF-8">
+            \\  </head>
+            \\  <body>
+            \\    <p>The requested page was not found!</p>
+            \\  </body>
+            \\</html>
+        );
+    }
+
+    pub fn addRoute(self: *Self, abs_path: []const u8) !*Route {
+        std.debug.assert(abs_path[0] == '/');
+
+        const route = try self.routes.addOne();
+        errdefer _ = self.routes.pop();
+
+        route.* = Route{
+            .arena = std.heap.ArenaAllocator.init(std.heap.c_allocator),
+            .prefix = undefined,
+            .handler = defaultRoute,
+            .context = undefined,
+        };
+        errdefer route.deinit();
+
+        route.prefix = try std.fmt.allocPrint0(&route.arena.allocator, "{s}{s}", .{ self.base_url, abs_path });
+
+        return route;
+    }
+
+    pub fn addContent(self: *Self, abs_path: []const u8, mime_type: []const u8, contents: []const u8) !void {
+        const route = try self.addRoute(abs_path);
+
+        const Handler = struct {
+            mime_type: []const u8,
+            contents: []const u8,
+
+            fn handle(_: *Provider, r: *Route, response: *apple_pie.Response, request: apple_pie.Request) Route.Error!void {
+                _ = request;
+
+                const handler = r.getContext(@This());
+
+                try response.headers.putNoClobber("Content-Type", handler.mime_type);
+
+                try response.writer().writeAll(handler.contents);
+            }
+        };
+
+        const handler = try route.arena.allocator.create(Handler);
+        handler.* = Handler{
+            .mime_type = try route.arena.allocator.dupe(u8, mime_type),
+            .contents = try route.arena.allocator.dupe(u8, contents),
+        };
+
+        route.handler = Handler.handle;
+        route.context = @ptrCast(*Route.GenericPointer, handler);
+    }
+
+    /// Returns the full URI for `abs_path`
+    pub fn getUri(self: *Self, abs_path: []const u8) ?[:0]const u8 {
+        std.debug.assert(abs_path[0] == '/');
+        for (self.routes.items) |route| {
+            if (std.mem.eql(u8, route.prefix[self.base_url.len..], abs_path))
+                return route.prefix;
+        }
+        return null;
+    }
+
+    pub fn run(self: *Self) !void {
+        try self.server.run();
+    }
+
+    pub fn shutdown(self: *Self) void {
+        self.server.shutdown();
+    }
+
+    fn handleRequest(self: *Self, response: *apple_pie.Response, request: apple_pie.Request) !void {
+        std.log.info("{s}", .{
+            request.context.url.path,
+        });
+
+        var best_match: ?*Route = null;
+        for (self.routes.items) |*route| {
+            if (std.mem.startsWith(u8, request.context.url.path, route.prefix[self.base_url.len..])) {
+                if (best_match == null or best_match.?.prefix.len < route.prefix.len) {
+                    best_match = route;
+                }
+            }
+        }
+
+        if (best_match) |route| {
+            try route.handler(self, route, response, request);
+        } else {
+            try defaultRoute(self, undefined, response, request);
+        }
+    }
+};
