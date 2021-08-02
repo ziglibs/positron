@@ -1,24 +1,39 @@
 const std = @import("std");
 const wv = @import("positron");
 
+const App = struct {
+    provider: *wv.Provider,
+    view: *wv.View,
+
+    pub fn getWebView(app: *App) *wv.View {
+        return app.view;
+    }
+};
+
 pub fn main() !void {
-    var provider = try wv.Provider.create(std.heap.c_allocator);
-    defer provider.destroy();
+    var app = App{
+        .provider = undefined,
+        .view = undefined,
+    };
 
-    std.log.info("base uri: {s}", .{provider.base_url});
+    app.provider = try wv.Provider.create(std.heap.c_allocator);
+    defer app.provider.destroy();
 
-    try provider.addContent("/index.htm", "text/html", @embedFile("index.htm"));
+    std.log.info("base uri: {s}", .{app.provider.base_url});
 
-    const thread = try std.Thread.spawn(.{}, wv.Provider.run, .{provider});
+    try app.provider.addContent("/login.htm", "text/html", @embedFile("login.htm"));
+    try app.provider.addContent("/app.htm", "text/html", @embedFile("app.htm"));
+
+    const thread = try std.Thread.spawn(.{}, wv.Provider.run, .{app.provider});
     thread.detach();
 
-    const view = try wv.View.create((std.builtin.mode == .Debug), null);
-    defer view.destroy();
+    app.view = try wv.View.create((std.builtin.mode == .Debug), null);
+    defer app.view.destroy();
 
-    view.setTitle("Webview Example");
-    view.setSize(480, 320, .none);
+    app.view.setTitle("Webview Example");
+    app.view.setSize(400, 550, .fixed);
 
-    view.bind("sayHello", sayHello, view);
+    app.view.bind("performLogin", performLogin, &app);
 
     // view.init(
     //     \\document.addEventListener("DOMContentLoaded", () => {
@@ -40,26 +55,17 @@ pub fn main() !void {
     //     \\});
     // );
 
-    view.navigate(provider.getUri("/index.htm") orelse unreachable);
-    view.run();
+    app.view.navigate(app.provider.getUri("/login.htm") orelse unreachable);
+    app.view.run();
 }
 
-const Point = struct {
-    x: f32,
-    y: f32,
-};
+fn performLogin(app: *App, user_name: []const u8, password: []const u8) !bool {
+    if (!std.mem.eql(u8, user_name, "ziggy"))
+        return false;
+    if (!std.mem.eql(u8, password, "love"))
+        return false;
 
-var calls: usize = 0;
-fn sayHello(view: *wv.View, pt: Point, text: []const u8, value: f64) !Point {
-    _ = view;
-    std.debug.print("sayHello({}, \"{s}\", {d})\n", .{ pt, text, value });
+    app.view.navigate(app.provider.getUri("/app.htm") orelse unreachable);
 
-    if (calls > 3)
-        return error.TooManyCalls;
-    calls += 1;
-
-    return Point{
-        .x = pt.y,
-        .y = -pt.x,
-    };
+    return true;
 }

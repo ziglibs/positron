@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            background-color: #444;
+            color: #FFF;
+            padding: 0;
+            margin: 0;
+        }
+
+        body {
+            padding: 0;
+            margin: 0;
+            font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+        }
+
+        h1 {
+            display: block;
+            border-bottom: 1px solid #888;
+            margin: 0;
+            padding: 0.5em;
+            text-align: center;
+            background-color: cornflowerblue;
+            color: #EEE;
+        }
+
+        .panel {
+            padding: 1em;
+        }
+
+        .panel table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .panel table tr td,
+        .panel table tr th {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5em;
+        }
+
+        .panel table th {
+            text-align: right;
+            font-weight: normal;
+        }
+
+        .panel table td input {
+            width: 100%;
+        }
+
+        .panel table td.button {
+            text-align: right;
+        }
+
+        .panel table td.button button {
+            border: 2px solid white;
+            background: green;
+            color: white;
+            padding-left: 2rem;
+            padding-right: 2rem;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+            font-weight: bold;
+        }
+
+        .panel table td.button button:hover {
+            background-color: #0A0;
+        }
+
+        .panel table td.button button:active {
+            background-color: #080;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const user_name = document.getElementById("user_name");
+            const password = document.getElementById("password");
+            const login = document.getElementById("login");
+
+            function returnHandler(ev) {
+                if (ev.keyCode === 13) {
+                    ev.preventDefault();
+                    login.click();
+                }
+            }
+
+
+
+            user_name.addEventListener('keyup', returnHandler);
+            password.addEventListener('keyup', returnHandler);
+            login.addEventListener('click', () => {
+                const uname = user_name.value;
+                const passwd = password.value;
+
+                const result = document.getElementById("call_result");
+                login.setAttribute('disabled', '');
+                performLogin(uname, passwd).then((success) => {
+                    login.removeAttribute('disabled');
+
+                    if (!success) {
+                        alert('Login failed!');
+                    }
+                }).catch((v) => {
+                    login.removeAttribute('disabled');
+                });
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <h1>Login</h1>
+    <div class="panel">
+        <table>
+            <tr>
+                <th>User Name:</th>
+                <td><input id="user_name" type="text" autofocus></td>
+            </tr>
+            <tr>
+                <th>Password:</th>
+                <td><input id="password" type="password"></td>
+            </tr>
+            <tr>
+                <td class="button" colspan="2"><button id="login" type="button">Login</button></td>
+            </tr>
+        </table>
+
+
+    </div>
+</body>
+
+</html>
+
+</html>
