@@ -95,7 +95,7 @@ pub const WebView = opaque {
     /// receives a request string and a user-provided argument pointer. Request
     /// string is a JSON array of all the arguments passed to the JavaScript
     /// function.
-    pub fn bind(self: *Self, name: [:0]const u8, context: anytype, comptime callback: fn (ctx: @TypeOf(context), seq: [:0]const u8, req: [:0]const u8) void) void {
+    pub fn bindRaw(self: *Self, name: [:0]const u8, context: anytype, comptime callback: fn (ctx: @TypeOf(context), seq: [:0]const u8, req: [:0]const u8) void) void {
         const Context = @TypeOf(context);
         const Binder = struct {
             fn c_callback(seq: [*c]const u8, req: [*c]const u8, arg: ?*c_void) callconv(.C) void {
@@ -104,6 +104,105 @@ pub const WebView = opaque {
                     std.mem.sliceTo(seq, 0),
                     std.mem.sliceTo(req, 0),
                 );
+            }
+        };
+
+        webview_bind(self, name.ptr, Binder.c_callback, context);
+    }
+
+    pub fn bind(self: *Self, name: [:0]const u8, context: anytype, comptime callback: anytype) void {
+        const Fn = @TypeOf(callback);
+        const function_info: std.builtin.TypeInfo.Fn = @typeInfo(Fn).Fn;
+
+        if (function_info.args.len < 1)
+            @compileError("Function must take at least the context argument!");
+
+        const ReturnType = function_info.return_type orelse @compileError("Function must be non-generic!");
+        const return_info: std.builtin.TypeInfo = @typeInfo(ReturnType);
+
+        const Context = @TypeOf(context);
+
+        const Binder = struct {
+            fn getWebView(ctx: Context) *WebView {
+                if (Context == *WebView)
+                    return ctx;
+                return ctx.getWebView();
+            }
+
+            fn expectArrayStart(stream: *std.json.TokenStream) !void {
+                const tok = (try stream.next()) orelse return error.InvalidJson;
+                if (tok != .ArrayBegin)
+                    return error.InvalidJson;
+            }
+
+            fn expectArrayEnd(stream: *std.json.TokenStream) !void {
+                const tok = (try stream.next()) orelse return error.InvalidJson;
+                if (tok != .ArrayEnd)
+                    return error.InvalidJson;
+            }
+
+            fn errorResponse(view: *WebView, seq: [:0]const u8, err: anyerror) void {
+                var buffer: [64]u8 = undefined;
+                const err_str = std.fmt.bufPrint(&buffer, "\"{s}\"\x00", .{@errorName(err)}) catch @panic("error name too long!");
+
+                view.@"return"(seq, .{ .failure = err_str[0 .. err_str.len - 1 :0] });
+            }
+
+            fn successResponse(view: *WebView, seq: [:0]const u8, value: anytype) void {
+                var buf = std.ArrayList(u8).init(std.heap.c_allocator);
+                defer buf.deinit();
+
+                std.json.stringify(value, .{}, buf.writer()) catch |err| {
+                    return errorResponse(view, seq, err);
+                };
+
+                buf.append(0) catch |err| {
+                    return errorResponse(view, seq, err);
+                };
+
+                const str = buf.items;
+
+                view.@"return"(seq, .{ .success = str[0 .. str.len - 1 :0] });
+            }
+
+            fn c_callback(seq0: [*c]const u8, req0: [*c]const u8, arg: ?*c_void) callconv(.C) void {
+                const cb_context = @ptrCast(Context, arg);
+
+                const view = getWebView(cb_context);
+
+                const seq = std.mem.sliceTo(seq0, 0);
+                const req = std.mem.sliceTo(req0, 0);
+
+                std.log.info("invocation: {*} seq={s} req={s}", .{
+                    view, seq, req,
+                });
+
+                var json_parser = std.json.TokenStream.init(req);
+                expectArrayStart(&json_parser) catch |err| {
+                    std.log.err("parser start: {}", .{err});
+                    return errorResponse(view, seq, err);
+                };
+                // TODO: Parse rest of arguments here
+                expectArrayEnd(&json_parser) catch |err| {
+                    std.log.err("parser end: {}", .{err});
+                    return errorResponse(view, seq, err);
+                };
+
+                var parsed_args = .{};
+
+                const result = @call(.{}, callback, .{cb_context} ++ parsed_args);
+
+                std.debug.print("result: {}\n", .{result});
+
+                if (return_info == .ErrorUnion) {
+                    if (result) |value| {
+                        return successResponse(view, seq, value);
+                    } else |err| {
+                        return errorResponse(view, seq, err);
+                    }
+                } else {
+                    successResponse(view, seq, result);
+                }
             }
         };
 
@@ -135,6 +234,7 @@ test {
     _ = WebView.init;
     _ = WebView.eval;
     _ = WebView.bind;
+    _ = WebView.bindRaw;
     _ = WebView.@"return";
 }
 

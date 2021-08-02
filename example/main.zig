@@ -23,8 +23,9 @@ pub fn main() !void {
         \\  overlay.style.zIndex = 100;
         \\  overlay.addEventListener("click", () => {
         \\    overlay.style.backgroundColor = "blue";
-        \\    sayHello();
-        \\    overlay.style.backgroundColor = "red";
+        //\\    sayHello({ a: 1, b: 2 }, "hello", 42.0);
+        \\    overlay.innerText = "running";
+        \\    sayHello().then((v) => { overlay.innerText = "success:" + JSON.stringify(v); overlay.style.backgroundColor = "green"; }).catch((v) => { overlay.innerText = "error:" + JSON.stringify(v); overlay.style.backgroundColor = "red"; });
         \\  });
         \\  document.body.appendChild(overlay);
         \\});
@@ -34,9 +35,14 @@ pub fn main() !void {
     view.run();
 }
 
-fn sayHello(view: *wv.WebView, seq: [:0]const u8, req: [:0]const u8) void {
-    std.debug.print("sayHello('{s}', '{s}')\n", .{
-        seq, req,
-    });
-    view.@"return"(seq, .{ .success = "{}" });
+var calls: usize = 0;
+fn sayHello(view: *wv.WebView) !u32 {
+    _ = view;
+    std.debug.print("sayHello({})\n", .{calls});
+
+    if (calls > 3)
+        return error.TooManyCalls;
+    calls += 1;
+
+    return @truncate(u32, calls);
 }
