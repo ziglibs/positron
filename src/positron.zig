@@ -173,26 +173,50 @@ pub const WebView = opaque {
                 const seq = std.mem.sliceTo(seq0, 0);
                 const req = std.mem.sliceTo(req0, 0);
 
-                std.log.info("invocation: {*} seq={s} req={s}", .{
-                    view, seq, req,
-                });
+                // std.log.info("invocation: {*} seq={s} req={s}", .{
+                //     view, seq, req,
+                // });
+
+                const ArgType = std.meta.ArgsTuple(Fn);
+
+                var arena = std.heap.ArenaAllocator.init(std.heap.c_allocator);
+                defer arena.deinit();
+
+                var parsed_args: ArgType = undefined;
+                parsed_args[0] = cb_context;
 
                 var json_parser = std.json.TokenStream.init(req);
-                expectArrayStart(&json_parser) catch |err| {
-                    std.log.err("parser start: {}", .{err});
-                    return errorResponse(view, seq, err);
-                };
-                // TODO: Parse rest of arguments here
-                expectArrayEnd(&json_parser) catch |err| {
-                    std.log.err("parser end: {}", .{err});
-                    return errorResponse(view, seq, err);
-                };
+                {
+                    expectArrayStart(&json_parser) catch |err| {
+                        std.log.err("parser start: {}", .{err});
+                        return errorResponse(view, seq, err);
+                    };
 
-                var parsed_args = .{};
+                    comptime var i = 1;
+                    inline while (i < function_info.args.len) : (i += 1) {
+                        const Type = @TypeOf(parsed_args[i]);
+                        parsed_args[i] = std.json.parse(Type, &json_parser, .{
+                            .allocator = &arena.allocator,
+                            .duplicate_field_behavior = .UseFirst,
+                            .ignore_unknown_fields = false,
+                            .allow_trailing_data = true,
+                        }) catch |err| {
+                            if (@errorReturnTrace()) |trace|
+                                std.debug.dumpStackTrace(trace.*);
+                            std.log.err("parsing argument {d}: {}", .{ i, err });
+                            return errorResponse(view, seq, err);
+                        };
+                    }
 
-                const result = @call(.{}, callback, .{cb_context} ++ parsed_args);
+                    expectArrayEnd(&json_parser) catch |err| {
+                        std.log.err("parser end: {}", .{err});
+                        return errorResponse(view, seq, err);
+                    };
+                }
 
-                std.debug.print("result: {}\n", .{result});
+                const result = @call(.{}, callback, parsed_args);
+
+                // std.debug.print("result: {}\n", .{result});
 
                 if (return_info == .ErrorUnion) {
                     if (result) |value| {

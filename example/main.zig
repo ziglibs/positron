@@ -23,9 +23,8 @@ pub fn main() !void {
         \\  overlay.style.zIndex = 100;
         \\  overlay.addEventListener("click", () => {
         \\    overlay.style.backgroundColor = "blue";
-        //\\    sayHello({ a: 1, b: 2 }, "hello", 42.0);
         \\    overlay.innerText = "running";
-        \\    sayHello().then((v) => { overlay.innerText = "success:" + JSON.stringify(v); overlay.style.backgroundColor = "green"; }).catch((v) => { overlay.innerText = "error:" + JSON.stringify(v); overlay.style.backgroundColor = "red"; });
+        \\    sayHello({ x: 1, y: 2 }, "hello", 42.0).then((v) => { overlay.innerText = "success:" + JSON.stringify(v); overlay.style.backgroundColor = "green"; }).catch((v) => { overlay.innerText = "error:" + JSON.stringify(v); overlay.style.backgroundColor = "red"; });
         \\  });
         \\  document.body.appendChild(overlay);
         \\});
@@ -35,10 +34,15 @@ pub fn main() !void {
     view.run();
 }
 
+const Point = struct {
+    x: f32,
+    y: f32,
+};
+
 var calls: usize = 0;
-fn sayHello(view: *wv.WebView) !u32 {
+fn sayHello(view: *wv.WebView, pt: Point, text: []const u8, value: f64) !u32 {
     _ = view;
-    std.debug.print("sayHello({})\n", .{calls});
+    std.debug.print("sayHello({}, \"{s}\", {d})\n", .{ pt, text, value });
 
     if (calls > 3)
         return error.TooManyCalls;
