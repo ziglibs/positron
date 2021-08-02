@@ -114,6 +114,10 @@
             return "#" + a0.toString(16).padStart(2, "0") + b0.toString(16).padStart(2, "0") + c0.toString(16).padStart(2, "0");
         }
 
+        function formatTime(ts) {
+            return new Date(ts).toISOString().substr(0, 19).replace("T", " ");
+        }
+
         function appendMessage(msg) {
             const target = document.getElementById("history");
 
@@ -122,7 +126,7 @@
             sender.style.color = nameColor(msg.sender);
 
             const timestamp = document.createElement("timestamp");
-            timestamp.innerText = msg.timestamp;
+            timestamp.innerText = formatTime(msg.timestamp);
 
             const content = document.createElement("content");
             content.innerText = msg.content;

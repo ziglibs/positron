@@ -31,8 +31,11 @@ pub fn main() !void {
     try app.provider.addContent("/app.htm", "text/html", @embedFile("app.htm"));
     try app.provider.addContent("/design.css", "text/css", @embedFile("design.css"));
 
-    const thread = try std.Thread.spawn(.{}, wv.Provider.run, .{app.provider});
-    thread.detach();
+    const provide_thread = try std.Thread.spawn(.{}, wv.Provider.run, .{app.provider});
+    provide_thread.detach();
+
+    const fake_thread = try std.Thread.spawn(.{}, sendRandomMessagesInBackground, .{&app});
+    fake_thread.detach();
 
     app.view = try wv.View.create((std.builtin.mode == .Debug), null);
     defer app.view.destroy();
@@ -42,26 +45,6 @@ pub fn main() !void {
 
     app.view.bind("performLogin", performLogin, &app);
     app.view.bind("sendMessage", sendMessage, &app);
-
-    // view.init(
-    //     \\document.addEventListener("DOMContentLoaded", () => {
-    //     \\  const overlay = document.createElement("div");
-    //     \\  overlay.innerText = "Hello, Ziguanas!";
-    //     \\  overlay.style.display = "block";
-    //     \\  overlay.style.position = "fixed";
-    //     \\  overlay.style.left = 0;
-    //     \\  overlay.style.top = 0;
-    //     \\  overlay.style.backgroundColor = "white";
-    //     \\  overlay.style.padding = "10px";
-    //     \\  overlay.style.zIndex = 100;
-    //     \\  overlay.addEventListener("click", () => {
-    //     \\    overlay.style.backgroundColor = "blue";
-    //     \\    overlay.innerText = "running";
-    //     \\    sayHello({ x: 1, y: 2 }, "hello", 42.0).then((v) => { overlay.innerText = "success:" + JSON.stringify(v); overlay.style.backgroundColor = "green"; }).catch((v) => { overlay.innerText = "error:" + JSON.stringify(v); overlay.style.backgroundColor = "red"; });
-    //     \\  });
-    //     \\  document.body.appendChild(overlay);
-    //     \\});
-    // );
 
     app.view.navigate(app.provider.getUri("/login.htm") orelse unreachable);
     app.view.run();
@@ -82,23 +65,27 @@ fn performLogin(app: *App, user_name: []const u8, password: []const u8) !bool {
 
 const Message = struct {
     sender: []const u8,
-    timestamp: []const u8,
+    timestamp: i64,
     content: []const u8,
 };
 
 fn sendMessage(app: *App, message_text: []const u8) !void {
     std.debug.assert(app.user_name != null);
 
+    const message = Message{
+        .sender = app.user_name.?,
+        .timestamp = std.time.milliTimestamp(),
+        .content = message_text,
+    };
+
+    try appendMessage(app, message);
+}
+
+fn appendMessage(app: *App, message: Message) !void {
     var dynamic_buffer = std.ArrayList(u8).init(std.heap.c_allocator);
     defer dynamic_buffer.deinit();
 
     const writer = dynamic_buffer.writer();
-
-    const message = Message{
-        .sender = app.user_name.?,
-        .timestamp = "2021-08-02 19:46:30",
-        .content = message_text,
-    };
 
     try writer.writeAll("appendMessage(");
     try std.json.stringify(message, .{}, writer);
@@ -108,3 +95,53 @@ fn sendMessage(app: *App, message_text: []const u8) !void {
 
     app.view.eval(dynamic_buffer.items[0 .. dynamic_buffer.items.len - 1 :0]);
 }
+
+fn sendRandomMessagesInBackground(app: *App) !void {
+    var random = std.rand.DefaultPrng.init(@ptrToInt(&app));
+    const rng = &random.random;
+    while (true) {
+        const time_seconds = 1.5 + 5.5 * rng.float(f32);
+
+        const ns = @floatToInt(u64, std.time.ns_per_s * time_seconds);
+
+        std.time.sleep(ns);
+
+        try appendMessage(app, Message{
+            .sender = senders[rng.intRangeLessThan(usize, 0, senders.len)],
+            .timestamp = std.time.milliTimestamp(),
+            .content = messages[rng.intRangeLessThan(usize, 0, messages.len)],
+        });
+    }
+}
+
+const senders = [_][]const u8{
+    "Your mom",
+    "xq",
+    "mattnite",
+    "Sobeston",
+    "Aurame",
+    "fengb",
+    "Luuk",
+    "MasterQ32",
+    "Tater",
+};
+
+const messages = [_][]const u8{
+    "hi",
+    "what's up?",
+    "I love zig!",
+    "How do i exit vim?",
+    "I finally finished my project",
+    "I'm 90% through the code base!",
+    "Where is the documentation for the Zig standard library?",
+    "Why does Zig force me to use spaces instead of tabs?",
+    "Why does zig fmt have no configuration options?",
+    "Why is switching on []u8 (strings) not supported?",
+    "vim is better than emacs!",
+    "emacs is better than vim!",
+    "btw, i use Arch Linux!",
+    "… joined the channel!",
+    "Как установить компилятор?",
+    "Где я нахожу искусство Игуаны?",
+    "私は安いリッピングを売っています。 禅に従ってください！",
+};
