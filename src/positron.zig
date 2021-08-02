@@ -142,20 +142,24 @@ pub const View = opaque {
             }
 
             fn successResponse(view: *Self, seq: [:0]const u8, value: anytype) void {
-                var buf = std.ArrayList(u8).init(std.heap.c_allocator);
-                defer buf.deinit();
+                if (@TypeOf(value) != void) {
+                    var buf = std.ArrayList(u8).init(std.heap.c_allocator);
+                    defer buf.deinit();
 
-                std.json.stringify(value, .{}, buf.writer()) catch |err| {
-                    return errorResponse(view, seq, err);
-                };
+                    std.json.stringify(value, .{}, buf.writer()) catch |err| {
+                        return errorResponse(view, seq, err);
+                    };
 
-                buf.append(0) catch |err| {
-                    return errorResponse(view, seq, err);
-                };
+                    buf.append(0) catch |err| {
+                        return errorResponse(view, seq, err);
+                    };
 
-                const str = buf.items;
+                    const str = buf.items;
 
-                view.@"return"(seq, .{ .success = str[0 .. str.len - 1 :0] });
+                    view.@"return"(seq, .{ .success = str[0 .. str.len - 1 :0] });
+                } else {
+                    view.@"return"(seq, .{ .success = "" });
+                }
             }
 
             fn c_callback(seq0: [*c]const u8, req0: [*c]const u8, arg: ?*c_void) callconv(.C) void {

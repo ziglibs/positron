@@ -3,94 +3,160 @@
 
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="design.css">
     <style>
-        * {
-            box-sizing: border-box;
+        .panel.chatbox {
+            display: flex;
         }
 
-        html {
-            background-color: #444;
-            color: #FFF;
-            padding: 0;
-            margin: 0;
+        .chatbox #message_text {
+            margin: 1rem;
+            margin-right: 0.5rem;
+            flex: 1;
         }
 
-        body {
-            padding: 0;
-            margin: 0;
-            font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+        .chatbox #send_button {
+            margin: 1rem;
+            margin-left: 0.5rem;
         }
 
-        h1 {
+        .history {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .history message {
             display: block;
-            border-bottom: 1px solid #888;
-            margin: 0;
-            padding: 0.5em;
-            text-align: center;
-            background-color: cornflowerblue;
-            color: #EEE;
-        }
-
-        .panel {
-            padding: 1em;
-        }
-
-        .panel table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .panel table tr td,
-        .panel table tr th {
+            font-family: 'Courier New', Courier, monospace;
+            border-top: 1px solid #0002;
             padding-top: 0.5rem;
-            padding-bottom: 0.5em;
-        }
-
-        .panel table th {
-            text-align: right;
-            font-weight: normal;
-        }
-
-        .panel table td input {
+            padding-bottom: 0.5rem;
             width: 100%;
+            position: relative;
         }
 
-        .panel table td.button {
-            text-align: right;
-        }
-
-        .panel table td.button button {
-            border: 2px solid white;
-            background: green;
-            color: white;
-            padding-left: 2rem;
-            padding-right: 2rem;
-            padding-top: 1rem;
-            padding-bottom: 1rem;
+        .history message sender {
+            display: inline-block;
             font-weight: bold;
         }
 
-        .panel table td.button button:hover {
-            background-color: #0A0;
+        .history message timestamp {
+            position: absolute;
+            right: 0;
+            display: inline-block;
+            color: #FFF8;
+            text-align: right;
         }
 
-        .panel table td.button button:active {
-            background-color: #080;
+        .history message content {
+            display: block;
         }
     </style>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const message_text = document.getElementById("message_text");
+            const send_button = document.getElementById("send_button");
 
+            message_text.addEventListener('keyup', (ev) => {
+                if (ev.keyCode === 13) {
+                    ev.preventDefault();
+                    send_button.click();
+                }
+            });
+
+            send_button.addEventListener('click', () => {
+                const text = message_text.value;
+
+                if (text.length > 0) {
+                    sendMessage(text).then(() => {
+                        message_text.value = "";
+                        message_text.focus();
+                    }).catch((err) => {
+                        // ???
+                        console.log("failed to send message:", error);
+                    });
+                }
+
+            });
         });
+
+        function xorshift8(x) {
+            x |= x == 0; // if x == 0, set x = 1 instead
+            x ^= (x & 0x07) << 5;
+            x ^= x >> 3;
+            x ^= (x & 0x03) << 6;
+            return x & 0xff;
+        }
+
+        function nameColor(name) {
+            var a0 = xorshift8(0xFF);
+            var b0 = xorshift8(a0);
+            var c0 = xorshift8(b0);
+            for (let i = 0; i < name.length; i++) {
+                let x = name.charCodeAt(i);
+                const a1 = xorshift8(c0 ^ x);
+                const b1 = xorshift8(b0 ^ x);
+                const c1 = xorshift8(a0 ^ x);
+                a0 = a1;
+                b0 = b1;
+                c0 = c1;
+            }
+            a0 &= 0xFF;
+            b0 &= 0xFF;
+            c0 &= 0xFF;
+
+            if ((a0 + b0 + c0) / 3 < 0x80) {
+                a0 = 0xFF - a0;
+                b0 = 0xFF - b0;
+                c0 = 0xFF - c0;
+            }
+
+            return "#" + a0.toString(16).padStart(2, "0") + b0.toString(16).padStart(2, "0") + c0.toString(16).padStart(2, "0");
+        }
+
+        function appendMessage(msg) {
+            const target = document.getElementById("history");
+
+            const sender = document.createElement("sender");
+            sender.innerText = msg.sender;
+            sender.style.color = nameColor(msg.sender);
+
+            const timestamp = document.createElement("timestamp");
+            timestamp.innerText = msg.timestamp;
+
+            const content = document.createElement("content");
+            content.innerText = msg.content;
+
+            const message = document.createElement("message");
+            message.append(sender);
+            message.append(timestamp);
+            message.append(content);
+
+            target.append(message);
+
+            target.scrollBy(0, target.scrollHeight); // scroll to end
+        }
     </script>
 </head>
 
 <body>
-    <h1>Secret Stash</h1>
-    <div class="panel">
-        <p>The information displayed here is confidential!
+    <div class=" panel top header">Zig Chat</div>
+    <div id="history" class="panel center history">
+        <!--
+        <message>
+            <sender>Aurame</sender>
+            <timestamp>2021-08-02 17:34:03</timestamp>
+            <content>Hey dude, what's up?!</content>
+        </message>
+        -->
+    </div>
+    <div class="panel bottom chatbox">
+        <input id="message_text" type="text" autofocus>
+        <button id="send_button" type="button">Send</button>
     </div>
 </body>
+
+</html>
 
 </html>
 

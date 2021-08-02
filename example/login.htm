@@ -3,38 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="design.css">
     <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        html {
-            background-color: #444;
-            color: #FFF;
-            padding: 0;
-            margin: 0;
-        }
-
-        body {
-            padding: 0;
-            margin: 0;
-            font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
-        }
-
-        h1 {
-            display: block;
-            border-bottom: 1px solid #888;
-            margin: 0;
-            padding: 0.5em;
-            text-align: center;
-            background-color: cornflowerblue;
-            color: #EEE;
-        }
-
-        .panel {
-            padding: 1em;
-        }
-
         .panel table {
             width: 100%;
             border-collapse: collapse;
@@ -91,8 +61,6 @@
                 }
             }
 
-
-
             user_name.addEventListener('keyup', returnHandler);
             password.addEventListener('keyup', returnHandler);
             login.addEventListener('click', () => {
@@ -116,8 +84,8 @@
 </head>
 
 <body>
-    <h1>Login</h1>
-    <div class="panel">
+    <div class="panel header">Login</div>
+    <div class="panel padded">
         <table>
             <tr>
                 <th>User Name:</th>
@@ -131,8 +99,6 @@
                 <td class="button" colspan="2"><button id="login" type="button">Login</button></td>
             </tr>
         </table>
-
-
     </div>
 </body>
 
