@@ -27,12 +27,12 @@ pub fn main() !void {
 
     std.log.info("base uri: {s}", .{app.provider.base_url});
 
-    // try app.provider.addContent("/login.htm", "text/html", @embedFile("login.htm"));
-    // try app.provider.addContent("/app.htm", "text/html", @embedFile("app.htm"));
-    // try app.provider.addContent("/design.css", "text/css", @embedFile("design.css"));
+    try app.provider.addContent("/login.htm", "text/html", @embedFile("login.htm"));
+    try app.provider.addContent("/app.htm", "text/html", @embedFile("app.htm"));
+    try app.provider.addContent("/design.css", "text/css", @embedFile("design.css"));
 
-    // const provide_thread = try std.Thread.spawn(.{}, wv.Provider.run, .{app.provider});
-    // provide_thread.detach();
+    const provide_thread = try std.Thread.spawn(.{}, wv.Provider.run, .{app.provider});
+    provide_thread.detach();
 
     std.log.info("provider ready.", .{});
 
