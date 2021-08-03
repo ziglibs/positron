@@ -957,6 +957,7 @@ public:
                                  }));
     if (res != S_OK) {
       CoUninitialize();
+      printf("failed to create webview!\n");
       return false;
     }
     MSG msg = {};
@@ -1050,7 +1051,7 @@ private:
       sprintf_s(long_buffer, sizeof long_buffer, "%ls", message);
       
       m_msgCb(long_buffer);
-      
+
       sender->PostWebMessageAsString(message);
 
       CoTaskMemFree(message);

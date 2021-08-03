@@ -42,13 +42,17 @@ fn linkPositron(exe: *std.build.LibExeObjStep, backend: ?Backend) void {
         "-std=c++17",
         "-fno-sanitize=undefined",
     });
-    exe.addIncludeDir("vendor/webview");
+    exe.addIncludeDir("vendor/webview"); // -
+
+    // Attempts to fix windows building:
     exe.addIncludeDir("vendor/winsdk");
 
     exe.addIncludeDir("vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/include");
     exe.addLibPath("vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/x64");
     exe.linkSystemLibrary("ole32");
+    exe.linkSystemLibrary("oleaut32");
     exe.addObjectFile("vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/x64/WebView2Loader.dll.lib");
+    //exe.linkSystemLibrary("windowsapp");
 
     if (backend) |b| {
         switch (b) {
