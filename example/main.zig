@@ -27,15 +27,14 @@ pub fn main() !void {
 
     std.log.info("base uri: {s}", .{app.provider.base_url});
 
-    try app.provider.addContent("/login.htm", "text/html", @embedFile("login.htm"));
-    try app.provider.addContent("/app.htm", "text/html", @embedFile("app.htm"));
-    try app.provider.addContent("/design.css", "text/css", @embedFile("design.css"));
+    // try app.provider.addContent("/login.htm", "text/html", @embedFile("login.htm"));
+    // try app.provider.addContent("/app.htm", "text/html", @embedFile("app.htm"));
+    // try app.provider.addContent("/design.css", "text/css", @embedFile("design.css"));
 
-    const provide_thread = try std.Thread.spawn(.{}, wv.Provider.run, .{app.provider});
-    provide_thread.detach();
+    // const provide_thread = try std.Thread.spawn(.{}, wv.Provider.run, .{app.provider});
+    // provide_thread.detach();
 
-    const fake_thread = try std.Thread.spawn(.{}, sendRandomMessagesInBackground, .{&app});
-    fake_thread.detach();
+    std.log.info("provider ready.", .{});
 
     app.view = try wv.View.create((std.builtin.mode == .Debug), null);
     defer app.view.destroy();
@@ -47,6 +46,15 @@ pub fn main() !void {
     app.view.bind("sendMessage", sendMessage, &app);
 
     app.view.navigate(app.provider.getUri("/login.htm") orelse unreachable);
+
+    std.log.info("webview ready.", .{});
+
+    // must be started here, as we may have a race condition otherwise
+    const fake_thread = try std.Thread.spawn(.{}, sendRandomMessagesInBackground, .{&app});
+    fake_thread.detach();
+
+    std.log.info("start.", .{});
+
     app.view.run();
 }
 
@@ -144,4 +152,17 @@ const messages = [_][]const u8{
     "Как установить компилятор?",
     "Где я нахожу искусство Игуаны?",
     "私は安いリッピングを売っています。 禅に従ってください！",
+    "How do I shot web?",
+    "No, no, he got a point!",
+    "I finally got my 5G shot. Now i can see the truth!",
+    "Who do I contact when i want to donate 50k to the ZSF?",
+    "Never Gonna Give You Up is actually nice",
+    "All your base are belong to us",
+    "Somebody set up us the bomb.",
+    "Main screen turn on.",
+    "You have no chance to survive make your time.",
+    "Move 'ZIG'.",
+    "For great justice.",
+    "The cake is a lie.",
+    "Rewrite it in Zig!",
 };
