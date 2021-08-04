@@ -28,6 +28,20 @@ Log in with `ziggy`/`love` and you can send messages, no real server there thoug
 
 You can build the example with `zig build` and run it with `zig build run`.
 
+## Building
+
+### Linux
+
+Install `gtk-3` and `webkit2gtk`, then invoke `zig build`.
+
+### Windows
+
+Download [Edge Dev Channel](https://www.microsoftedgeinsider.com/download), then invoke `zig build`.
+
+### MacOS
+
+No research was done for the support on MacOS. Try with `zig build`.
+
 ## Contributing
 
 This library is in a early state and is very WIP. Still, feel free to contribute with PRs, or use it. Just don't assume a stable API.

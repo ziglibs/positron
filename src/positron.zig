@@ -325,7 +325,7 @@ pub const Provider = struct {
 
     pub fn create(allocator: *std.mem.Allocator) !*Self {
         const provider = try allocator.create(Self);
-        defer allocator.destroy(provider);
+        errdefer allocator.destroy(provider);
 
         provider.* = Self{
             .allocator = allocator,

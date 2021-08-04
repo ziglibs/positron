@@ -8,6 +8,8 @@ const App = struct {
 
     user_name: ?[]const u8,
 
+    shutdown_thread: u32,
+
     pub fn getWebView(app: *App) *wv.View {
         return app.view;
     }
@@ -20,6 +22,7 @@ pub fn main() !void {
         .view = undefined,
 
         .user_name = null,
+        .shutdown_thread = 0,
     };
 
     app.provider = try wv.Provider.create(std.heap.c_allocator);
@@ -51,11 +54,13 @@ pub fn main() !void {
 
     // must be started here, as we may have a race condition otherwise
     const fake_thread = try std.Thread.spawn(.{}, sendRandomMessagesInBackground, .{&app});
-    fake_thread.detach();
+    defer fake_thread.join();
 
     std.log.info("start.", .{});
 
     app.view.run();
+
+    @atomicStore(u32, &app.shutdown_thread, 1 ,.SeqCst);
 }
 
 fn performLogin(app: *App, user_name: []const u8, password: []const u8) !bool {
@@ -113,6 +118,12 @@ fn sendRandomMessagesInBackground(app: *App) !void {
         const ns = @floatToInt(u64, std.time.ns_per_s * time_seconds);
 
         std.time.sleep(ns);
+
+        if(@atomicLoad(u32, &app.shutdown_thread, .SeqCst) != 0) {
+            std.log.info("Disable Faker Thread", .{});
+            @atomicStore(u32, &app.shutdown_thread, 2, .SeqCst);
+            return;
+        }
 
         try appendMessage(app, Message{
             .sender = senders[rng.intRangeLessThan(usize, 0, senders.len)],
