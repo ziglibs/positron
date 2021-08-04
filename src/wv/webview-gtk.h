@@ -41,12 +41,10 @@ public:
                                     WebKitJavascriptResult *r, gpointer arg) {
                        auto *w = static_cast<gtk_webkit_engine *>(arg);
 #if WEBKIT_MAJOR_VERSION >= 2 && WEBKIT_MINOR_VERSION >= 22
-                       JSCValue *value =
-                           webkit_javascript_result_get_js_value(r);
+                       JSCValue *value = webkit_javascript_result_get_js_value(r);
                        char *s = jsc_value_to_string(value);
 #else
-                       JSGlobalContextRef ctx =
-                           webkit_javascript_result_get_global_context(r);
+                       JSGlobalContextRef ctx = webkit_javascript_result_get_global_context(r);
                        JSValueRef value = webkit_javascript_result_get_value(r);
                        JSStringRef js = JSValueToStringCopy(ctx, value, NULL);
                        size_t n = JSStringGetMaximumUTF8CStringSize(js);
@@ -58,20 +56,16 @@ public:
                        g_free(s);
                      }),
                      this);
-    webkit_user_content_manager_register_script_message_handler(manager,
-                                                                "external");
-    init("window.external={invoke:function(s){window.webkit.messageHandlers."
-         "external.postMessage(s);}}");
+    webkit_user_content_manager_register_script_message_handler(manager, "external");
+    init("window.external={invoke:function(s){window.webkit.messageHandlers.external.postMessage(s);}}");
 
     gtk_container_add(GTK_CONTAINER(m_window), GTK_WIDGET(m_webview));
     gtk_widget_grab_focus(GTK_WIDGET(m_webview));
 
-    WebKitSettings *settings =
-        webkit_web_view_get_settings(WEBKIT_WEB_VIEW(m_webview));
+    WebKitSettings *settings = webkit_web_view_get_settings(WEBKIT_WEB_VIEW(m_webview));
     webkit_settings_set_javascript_can_access_clipboard(settings, true);
     if (debug) {
-      webkit_settings_set_enable_write_console_messages_to_stdout(settings,
-                                                                  true);
+      webkit_settings_set_enable_write_console_messages_to_stdout(settings, true);
       webkit_settings_set_enable_developer_extras(settings, true);
     }
 
