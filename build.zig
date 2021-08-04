@@ -38,11 +38,12 @@ fn linkPositron(exe: *std.build.LibExeObjStep, backend: ?Backend) void {
     exe.linkLibC();
     exe.linkSystemLibrary("c++");
     exe.addPackage(pkgs.pkgs.positron);
-    exe.addCSourceFile("src/binding.cpp", &[_][]const u8{
+
+    // make webview library standalone
+    exe.addCSourceFile("src/wv/webview.cpp", &[_][]const u8{
         "-std=c++17",
         "-fno-sanitize=undefined",
     });
-    exe.addIncludeDir("vendor/webview"); // -
 
     if (exe.target.isWindows()) {
 
