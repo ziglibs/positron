@@ -7,6 +7,16 @@ pub fn build(b: *std.build.Builder) void {
     const mode = b.standardReleaseOptions();
     const backend = b.option(Sdk.Backend, "backend", "Configures the backend that should be used for webview.");
 
+
+    const minimal_exe = b.addExecutable("positron-minimal", "example/minimal.zig");
+    minimal_exe.setTarget(target);
+    minimal_exe.setBuildMode(mode);
+
+    minimal_exe.addPackage(Sdk.getPackage("positron"));
+    Sdk.linkPositron(minimal_exe, null);
+
+    minimal_exe.install();
+
     const exe = b.addExecutable("positron-demo", "example/main.zig");
 
     exe.setTarget(target);

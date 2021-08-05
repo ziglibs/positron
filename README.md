@@ -9,6 +9,8 @@ A Zig binding to the [webview](https://github.com/webview/webview) library. Make
 ## Usage
 
 ```zig
+//! src/minimal.zig
+
 const std = @import("std");
 const wv = @import("positron");
 
@@ -21,6 +23,29 @@ pub fn main() !void {
 
     view.navigate("https://ziglang.org");
     view.run();
+}
+```
+
+```zig
+//! build.zig
+
+const std = @import("std");
+const pkgs = @import(".zpm/pkgs.zig");
+const Sdk = @import("Sdk.zig");
+
+pub fn build(b: *std.build.Builder) void {
+    const target = b.standardTargetOptions(.{});
+    const mode = b.standardReleaseOptions();
+
+    const exe = b.addExecutable("demo", "src/minimal.zig");
+    exe.setTarget(target);
+    exe.setBuildMode(mode);
+
+    // Add and link the package.
+    exe.addPackage(Sdk.getPackage("positron"));
+    Sdk.linkPositron(exe, null);
+
+    exe.install();
 }
 ```
 
