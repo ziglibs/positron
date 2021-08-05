@@ -4,6 +4,8 @@
 
 A Zig binding to the [webview](https://github.com/webview/webview) library. Make Zig applications with a nice HTML5 frontend a reality!
 
+![](screenshots/i3-login.png) ![](screenshots/windows-login.png)
+
 ## Usage
 
 ```zig
