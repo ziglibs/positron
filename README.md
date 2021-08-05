@@ -1,4 +1,6 @@
-# ⚛ Positron
+# ⚛️ Positron
+
+![project logo](design/icon.svg)
 
 A Zig binding to the [webview](https://github.com/webview/webview) library. Make Zig applications with a nice HTML5 frontend a reality!
 
