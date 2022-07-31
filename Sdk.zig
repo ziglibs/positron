@@ -40,7 +40,7 @@ pub fn linkPositron(exe: *std.build.LibExeObjStep, backend: ?Backend) void {
     exe.linkSystemLibrary("c++");
 
     // make webview library standalone
-    exe.addCSourceFile("src/wv/webview.cpp", &[_][]const u8{
+    exe.addCSourceFile(sdkRoot() ++ "/src/wv/webview.cpp", &[_][]const u8{
         "-std=c++17",
         "-fno-sanitize=undefined",
     });
@@ -50,12 +50,12 @@ pub fn linkPositron(exe: *std.build.LibExeObjStep, backend: ?Backend) void {
         // Attempts to fix windows building:
         exe.addIncludeDir("vendor/winsdk");
 
-        exe.addIncludeDir("vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/include");
-        exe.addLibPath("vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/x64");
+        exe.addIncludeDir(sdkRoot() ++ "/vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/include");
+        exe.addLibPath(sdkRoot() ++ "/vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/x64");
         exe.linkSystemLibrary("user32");
         exe.linkSystemLibrary("ole32");
         exe.linkSystemLibrary("oleaut32");
-        exe.addObjectFile("vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/x64/WebView2Loader.dll.lib");
+        exe.addObjectFile(sdkRoot() ++ "/vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/x64/WebView2Loader.dll.lib");
         //exe.linkSystemLibrary("windowsapp");
     }
 
@@ -71,7 +71,7 @@ pub fn linkPositron(exe: *std.build.LibExeObjStep, backend: ?Backend) void {
         //# Windows (x64)
         //$ c++ main.cc -mwindows -L./dll/x64 -lwebview -lWebView2Loader -o webview-example.exe
         .windows => {
-            exe.addLibPath("vendor/webview/dll/x64");
+            exe.addLibPath(sdkRoot() ++ "/vendor/webview/dll/x64");
         },
         //# MacOS
         //$ c++ main.cc -std=c++11 -framework WebKit -o webview-example
