@@ -1,16 +1,20 @@
 const std = @import("std");
 const pkgs = @import(".zpm/pkgs.zig");
 const Sdk = @import("Sdk.zig");
+const ZigServe = @import("vendor/serve/build.zig");
 
 pub fn build(b: *std.build.Builder) void {
     const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
     const backend = b.option(Sdk.Backend, "backend", "Configures the backend that should be used for webview.");
 
+    const wolfssl = ZigServe.createWolfSSL(b, target);
 
     const minimal_exe = b.addExecutable("positron-minimal", "example/minimal.zig");
     minimal_exe.setTarget(target);
     minimal_exe.setBuildMode(mode);
+    minimal_exe.linkLibrary(wolfssl);
+    minimal_exe.addIncludePath("vendor/serve/vendor/wolfssl");
 
     minimal_exe.addPackage(Sdk.getPackage("positron"));
     Sdk.linkPositron(minimal_exe, null);
@@ -18,7 +22,8 @@ pub fn build(b: *std.build.Builder) void {
     minimal_exe.install();
 
     const exe = b.addExecutable("positron-demo", "example/main.zig");
-
+    exe.linkLibrary(wolfssl);
+    exe.addIncludePath("vendor/serve/vendor/wolfssl");
     exe.setTarget(target);
 
     exe.setBuildMode(mode);

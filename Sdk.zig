@@ -13,12 +13,21 @@ fn sdkRoot() []const u8 {
 pub fn getPackage(name: []const u8) std.build.Pkg {
     return std.build.Pkg{
         .name = name,
-        .path = .{ .path = sdkRoot() ++ "/.zpm/../src/positron.zig" },
+        .source = .{ .path = sdkRoot() ++ "/src/positron.zig" },
         .dependencies = &[_]std.build.Pkg{
             std.build.Pkg{
-                .name = "apple_pie",
-                .path = .{ .path = sdkRoot() ++ "/.zpm/../vendor/apple_pie/src/apple_pie.zig" },
-                .dependencies = &[_]std.build.Pkg{},
+                .name = "serve",
+                .source = .{ .path = sdkRoot() ++ "/vendor/serve/src/serve.zig" },
+                .dependencies = &[_]std.build.Pkg{
+                    std.build.Pkg{
+                        .name = "uri",
+                        .source = .{ .path = sdkRoot() ++ "/vendor/serve/vendor/uri/uri.zig" },
+                    },
+                    std.build.Pkg{
+                        .name = "network",
+                        .source = .{ .path = sdkRoot() ++ "/vendor/serve/vendor/network/network.zig" },
+                    },
+                },
             },
         },
     };

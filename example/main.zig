@@ -39,7 +39,7 @@ pub fn main() !void {
 
     std.log.info("provider ready.", .{});
 
-    app.view = try wv.View.create((std.builtin.mode == .Debug), null);
+    app.view = try wv.View.create((@import("builtin").mode == .Debug), null);
     defer app.view.destroy();
 
     app.view.setTitle("Zig Chat");
@@ -60,7 +60,7 @@ pub fn main() !void {
 
     app.view.run();
 
-    @atomicStore(u32, &app.shutdown_thread, 1 ,.SeqCst);
+    @atomicStore(u32, &app.shutdown_thread, 1, .SeqCst);
 }
 
 fn performLogin(app: *App, user_name: []const u8, password: []const u8) !bool {
@@ -69,7 +69,7 @@ fn performLogin(app: *App, user_name: []const u8, password: []const u8) !bool {
     if (!std.mem.eql(u8, password, "love"))
         return false;
 
-    app.user_name = try app.arena.allocator.dupe(u8, user_name);
+    app.user_name = try app.arena.allocator().dupe(u8, user_name);
 
     app.view.navigate(app.provider.getUri("/app.htm") orelse unreachable);
 
@@ -111,7 +111,7 @@ fn appendMessage(app: *App, message: Message) !void {
 
 fn sendRandomMessagesInBackground(app: *App) !void {
     var random = std.rand.DefaultPrng.init(@ptrToInt(&app));
-    const rng = &random.random;
+    const rng = random.random();
     while (true) {
         const time_seconds = 1.5 + 5.5 * rng.float(f32);
 
@@ -119,7 +119,7 @@ fn sendRandomMessagesInBackground(app: *App) !void {
 
         std.time.sleep(ns);
 
-        if(@atomicLoad(u32, &app.shutdown_thread, .SeqCst) != 0) {
+        if (@atomicLoad(u32, &app.shutdown_thread, .SeqCst) != 0) {
             std.log.info("Disable Faker Thread", .{});
             @atomicStore(u32, &app.shutdown_thread, 2, .SeqCst);
             return;

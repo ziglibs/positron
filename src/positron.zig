@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const apple_pie = @import("apple_pie");
+const zig_serve = @import("serve");
 
 /// A web browser window that one can interact with.
 /// Uses a JSON RPC solution to talk to the browser window.
@@ -13,7 +13,7 @@ pub const View = opaque {
     /// is embedded into the given parent window. Otherwise a new window is created.
     /// Depending on the platform, a GtkWindow, NSWindow or HWND pointer can be
     /// passed here.
-    pub fn create(allow_debug: bool, parent_window: ?*c_void) !*Self {
+    pub fn create(allow_debug: bool, parent_window: ?*anyopaque) !*Self {
         return webview_create(@boolToInt(allow_debug), parent_window) orelse return error.WebviewError;
     }
 
@@ -43,7 +43,7 @@ pub const View = opaque {
     // Returns a native window handle pointer. When using GTK backend the pointer
     // is GtkWindow pointer, when using Cocoa backend the pointer is NSWindow
     // pointer, when using Win32 backend the pointer is HWND pointer.
-    pub fn getWindow(self: *Self) *c_void {
+    pub fn getWindow(self: *Self) *anyopaque {
         return webview_get_window(self) orelse @panic("missing native window!");
     }
 
@@ -52,7 +52,7 @@ pub const View = opaque {
         webview_set_title(self, title.ptr);
     }
 
-    /// Updates native window size. 
+    /// Updates native window size.
     pub fn setSize(self: *Self, width: u16, height: u16, hint: SizeHint) void {
         webview_set_size(self, width, height, @enumToInt(hint));
     }
@@ -86,7 +86,7 @@ pub const View = opaque {
     pub fn bindRaw(self: *Self, name: [:0]const u8, context: anytype, comptime callback: fn (ctx: @TypeOf(context), seq: [:0]const u8, req: [:0]const u8) void) void {
         const Context = @TypeOf(context);
         const Binder = struct {
-            fn c_callback(seq: [*c]const u8, req: [*c]const u8, arg: ?*c_void) callconv(.C) void {
+            fn c_callback(seq: [*c]const u8, req: [*c]const u8, arg: ?*anyopaque) callconv(.C) void {
                 callback(
                     @ptrCast(Context, arg),
                     std.mem.sliceTo(seq, 0),
@@ -162,7 +162,7 @@ pub const View = opaque {
                 }
             }
 
-            fn c_callback(seq0: [*c]const u8, req0: [*c]const u8, arg: ?*c_void) callconv(.C) void {
+            fn c_callback(seq0: [*c]const u8, req0: [*c]const u8, arg: ?*anyopaque) callconv(.C) void {
                 const cb_context = @ptrCast(Context, @alignCast(@alignOf(std.meta.Child(Context)), arg));
 
                 const view = getWebView(cb_context);
@@ -193,7 +193,7 @@ pub const View = opaque {
                     inline while (i < function_info.args.len) : (i += 1) {
                         const Type = @TypeOf(parsed_args[i]);
                         parsed_args[i] = std.json.parse(Type, &json_parser, .{
-                            .allocator = &arena.allocator,
+                            .allocator = arena.allocator(),
                             .duplicate_field_behavior = .UseFirst,
                             .ignore_unknown_fields = false,
                             .allow_trailing_data = true,
@@ -243,18 +243,18 @@ pub const View = opaque {
 
     // C Binding:
 
-    extern fn webview_create(debug: c_int, window: ?*c_void) ?*Self;
+    extern fn webview_create(debug: c_int, window: ?*anyopaque) ?*Self;
     extern fn webview_destroy(w: *Self) void;
     extern fn webview_run(w: *Self) void;
     extern fn webview_terminate(w: *Self) void;
-    extern fn webview_dispatch(w: *Self, func: ?fn (*Self, ?*c_void) callconv(.C) void, arg: ?*c_void) void;
-    extern fn webview_get_window(w: *Self) ?*c_void;
+    extern fn webview_dispatch(w: *Self, func: ?fn (*Self, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) void;
+    extern fn webview_get_window(w: *Self) ?*anyopaque;
     extern fn webview_set_title(w: *Self, title: [*:0]const u8) void;
     extern fn webview_set_size(w: *Self, width: c_int, height: c_int, hints: c_int) void;
     extern fn webview_navigate(w: *Self, url: [*:0]const u8) void;
     extern fn webview_init(w: *Self, js: [*:0]const u8) void;
     extern fn webview_eval(w: *Self, js: [*:0]const u8) void;
-    extern fn webview_bind(w: *Self, name: [*:0]const u8, func: ?fn ([*c]const u8, [*c]const u8, ?*c_void) callconv(.C) void, arg: ?*c_void) void;
+    extern fn webview_bind(w: *Self, name: [*:0]const u8, func: ?fn ([*c]const u8, [*c]const u8, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) void;
     extern fn webview_return(w: *Self, seq: [*:0]const u8, status: c_int, result: [*c]const u8) void;
 };
 
@@ -294,13 +294,11 @@ test {
 pub const Provider = struct {
     const Self = @This();
 
-    const Server = apple_pie.Server(*Self, handleRequest);
-
     const Route = struct {
-        const Error = error{OutOfMemory} || apple_pie.Response.Error;
+        const Error = error{OutOfMemory} || zig_serve.HttpResponse.WriteError;
 
         const GenericPointer = opaque {};
-        const RouteHandler = fn (*Provider, *Route, *apple_pie.Response, apple_pie.Request) Error!void;
+        const RouteHandler = fn (*Provider, *Route, *zig_serve.HttpContext) Error!void;
 
         arena: std.heap.ArenaAllocator,
         prefix: [:0]const u8,
@@ -317,42 +315,35 @@ pub const Provider = struct {
         }
     };
 
-    allocator: *std.mem.Allocator,
-    server: Server,
+    allocator: std.mem.Allocator,
+    server: zig_serve.HttpListener,
     base_url: []const u8,
 
     routes: std.ArrayList(Route),
 
-    pub fn create(allocator: *std.mem.Allocator) !*Self {
+    pub fn create(allocator: std.mem.Allocator) !*Self {
         const provider = try allocator.create(Self);
         errdefer allocator.destroy(provider);
 
         provider.* = Self{
             .allocator = allocator,
-            .server = Server.init(
-                allocator,
-                std.net.Address{
-                    .in = std.net.Ip4Address.init(.{ 127, 0, 0, 1 }, 0),
-                },
-                provider,
-            ),
+            .server = undefined,
             .base_url = undefined,
             .routes = std.ArrayList(Route).init(allocator),
         };
         errdefer provider.routes.deinit();
+
+        provider.server = try zig_serve.HttpListener.init(allocator);
         errdefer provider.server.deinit();
+
+        try provider.server.addEndpoint(zig_serve.IP.loopback_v4, 0);
 
         try provider.server.start();
 
-        const addr = provider.server.stream.listen_address;
-        const port = switch (addr.any.family) {
-            std.os.AF_INET => addr.in.getPort(),
-            std.os.AF_INET6 => @panic("unexpected listen address!"),
-            else => return error.UnsupportedSocketFamily,
-        };
+        const endpoint = try provider.server.bindings.items[0].socket.?.getLocalEndPoint();
 
-        provider.base_url = try std.fmt.allocPrint(provider.allocator, "http://127.0.0.1:{d}", .{port});
-        errdefer provider.allocator.free(self.base_url);
+        provider.base_url = try std.fmt.allocPrint(provider.allocator, "http://127.0.0.1:{d}", .{endpoint.port});
+        errdefer provider.allocator.free(provider.base_url);
 
         return provider;
     }
@@ -377,15 +368,15 @@ pub const Provider = struct {
         std.sort.sort(Route, self.routes.items, {}, compareRoute);
     }
 
-    fn defaultRoute(self: *Provider, route: *Route, response: *apple_pie.Response, request: apple_pie.Request) Route.Error!void {
+    fn defaultRoute(self: *Provider, route: *Route, context: *zig_serve.HttpContext) Route.Error!void {
         _ = self;
         _ = route;
-        _ = request;
+        _ = context;
 
-        try response.headers.putNoClobber("Content-Type", "text/html");
-        response.status_code = .not_found;
+        try context.response.setHeader("Content-Type", "text/html");
+        try context.response.setStatusCode(.not_found);
 
-        var writer = response.writer();
+        var writer = try context.response.writer();
         try writer.writeAll(
             \\<!doctype html>
             \\<html lang="en">
@@ -413,7 +404,7 @@ pub const Provider = struct {
         };
         errdefer route.deinit();
 
-        route.prefix = try std.fmt.allocPrint0(&route.arena.allocator, "{s}{s}", .{ self.base_url, abs_path });
+        route.prefix = try std.fmt.allocPrintZ(route.arena.allocator(), "{s}{s}", .{ self.base_url, abs_path });
 
         return route;
     }
@@ -425,21 +416,20 @@ pub const Provider = struct {
             mime_type: []const u8,
             contents: []const u8,
 
-            fn handle(_: *Provider, r: *Route, response: *apple_pie.Response, request: apple_pie.Request) Route.Error!void {
-                _ = request;
-
+            fn handle(_: *Provider, r: *Route, context: *zig_serve.HttpContext) Route.Error!void {
                 const handler = r.getContext(@This());
 
-                try response.headers.putNoClobber("Content-Type", handler.mime_type);
+                try context.response.setHeader("Content-Type", handler.mime_type);
 
-                try response.writer().writeAll(handler.contents);
+                var writer = try context.response.writer();
+                try writer.writeAll(handler.contents);
             }
         };
 
-        const handler = try route.arena.allocator.create(Handler);
+        const handler = try route.arena.allocator().create(Handler);
         handler.* = Handler{
-            .mime_type = try route.arena.allocator.dupe(u8, mime_type),
-            .contents = try route.arena.allocator.dupe(u8, contents),
+            .mime_type = try route.arena.allocator().dupe(u8, mime_type),
+            .contents = try route.arena.allocator().dupe(u8, contents),
         };
 
         route.handler = Handler.handle;
@@ -457,21 +447,31 @@ pub const Provider = struct {
     }
 
     pub fn run(self: *Self) !void {
-        try self.server.run();
+        while (true) {
+            var ctx = try self.server.getContext();
+            defer ctx.deinit();
+
+            self.handleRequest(ctx) catch |err| {
+                std.log.err("failed to handle request:{s}", .{@errorName(err)});
+            };
+        }
     }
 
     pub fn shutdown(self: *Self) void {
         self.server.shutdown();
     }
 
-    fn handleRequest(self: *Self, response: *apple_pie.Response, request: apple_pie.Request) !void {
-        std.log.info("{s}", .{
-            request.context.url.path,
-        });
+    fn handleRequest(self: *Self, ctx: *zig_serve.HttpContext) !void {
+        var path = ctx.request.url;
+        if (std.mem.indexOfScalar(u8, path, '?')) |index| {
+            path = path[0..index];
+        }
+
+        std.log.info("positron request: {s}", .{path});
 
         var best_match: ?*Route = null;
         for (self.routes.items) |*route| {
-            if (std.mem.startsWith(u8, request.context.url.path, route.prefix[self.base_url.len..])) {
+            if (std.mem.startsWith(u8, path, route.prefix[self.base_url.len..])) {
                 if (best_match == null or best_match.?.prefix.len < route.prefix.len) {
                     best_match = route;
                 }
@@ -479,9 +479,9 @@ pub const Provider = struct {
         }
 
         if (best_match) |route| {
-            try route.handler(self, route, response, request);
+            try route.handler(self, route, ctx);
         } else {
-            try defaultRoute(self, undefined, response, request);
+            try defaultRoute(self, undefined, ctx);
         }
     }
 };
