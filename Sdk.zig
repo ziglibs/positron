@@ -11,21 +11,22 @@ fn sdkRoot() []const u8 {
 }
 
 pub fn getPackage(name: []const u8) std.build.Pkg {
+    const sdkPath = comptime sdkRoot();
     return std.build.Pkg{
         .name = name,
-        .source = .{ .path = sdkRoot() ++ "/src/positron.zig" },
+        .source = .{ .path = sdkPath ++ "/src/positron.zig" },
         .dependencies = &[_]std.build.Pkg{
             std.build.Pkg{
                 .name = "serve",
-                .source = .{ .path = sdkRoot() ++ "/vendor/serve/src/serve.zig" },
+                .source = .{ .path = sdkPath ++ "/vendor/serve/src/serve.zig" },
                 .dependencies = &[_]std.build.Pkg{
                     std.build.Pkg{
                         .name = "uri",
-                        .source = .{ .path = sdkRoot() ++ "/vendor/serve/vendor/uri/uri.zig" },
+                        .source = .{ .path = sdkPath ++ "/vendor/serve/vendor/uri/uri.zig" },
                     },
                     std.build.Pkg{
                         .name = "network",
-                        .source = .{ .path = sdkRoot() ++ "/vendor/serve/vendor/network/network.zig" },
+                        .source = .{ .path = sdkPath ++ "/vendor/serve/vendor/network/network.zig" },
                     },
                 },
             },
@@ -40,7 +41,8 @@ pub fn linkPositron(exe: *std.build.LibExeObjStep, backend: ?Backend) void {
     exe.linkSystemLibrary("c++");
 
     // make webview library standalone
-    exe.addCSourceFile(sdkRoot() ++ "/src/wv/webview.cpp", &[_][]const u8{
+    const sdkPath = comptime sdkRoot();
+    exe.addCSourceFile(sdkPath ++ "/src/wv/webview.cpp", &[_][]const u8{
         "-std=c++17",
         "-fno-sanitize=undefined",
     });
@@ -48,14 +50,14 @@ pub fn linkPositron(exe: *std.build.LibExeObjStep, backend: ?Backend) void {
     if (exe.target.isWindows()) {
 
         // Attempts to fix windows building:
-        exe.addIncludeDir("vendor/winsdk");
+        exe.addIncludePath("vendor/winsdk");
 
-        exe.addIncludeDir(sdkRoot() ++ "/vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/include");
-        exe.addLibPath(sdkRoot() ++ "/vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/x64");
+        exe.addIncludePath(sdkPath ++ "/vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/include");
+        exe.addLibraryPath(sdkPath ++ "/vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/x64");
         exe.linkSystemLibrary("user32");
         exe.linkSystemLibrary("ole32");
         exe.linkSystemLibrary("oleaut32");
-        exe.addObjectFile(sdkRoot() ++ "/vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/x64/WebView2Loader.dll.lib");
+        exe.addObjectFile(sdkPath ++ "/vendor/Microsoft.Web.WebView2.1.0.902.49/build/native/x64/WebView2Loader.dll.lib");
         //exe.linkSystemLibrary("windowsapp");
     }
 
@@ -71,7 +73,7 @@ pub fn linkPositron(exe: *std.build.LibExeObjStep, backend: ?Backend) void {
         //# Windows (x64)
         //$ c++ main.cc -mwindows -L./dll/x64 -lwebview -lWebView2Loader -o webview-example.exe
         .windows => {
-            exe.addLibPath(sdkRoot() ++ "/vendor/webview/dll/x64");
+            exe.addLibraryPath(sdkPath ++ "/vendor/webview/dll/x64");
         },
         //# MacOS
         //$ c++ main.cc -std=c++11 -framework WebKit -o webview-example
